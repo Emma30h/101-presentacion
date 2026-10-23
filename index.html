@@ -669,9 +669,25 @@ body.doc .quote{grid-template-columns:1fr}
     // el móvil sale en un barrio alejado del centro, para que su etiqueta no pise las del 911 y Olimpo
     const O=M.puntos.garden, lejos=b=>Math.hypot(b.c[0]-O[0],b.c[1]-O[1])>130;
     const delQ=M.barrios.filter(b=>b.q===q), op=delQ.filter(lejos).length?delQ.filter(lejos):delQ;
-    const b=op[Math.floor(Math.random()*op.length)];
-    const nom=b.n.length>34?b.n.slice(0,33)+'…':b.n, der=b.c[0]>=mapas[0].O[0];
-    const yM=lejos(b)?b.c[1]-14:b.c[1]-32, yB=lejos(b)?b.c[1]+24:b.c[1]-14;   // cerca del centro, las dos etiquetas van arriba
+    const fijoB=new URLSearchParams(location.search).get('b');   // ?b=Palmar fuerza un barrio (para pruebas)
+    const b=(fijoB&&delQ.find(x=>x.n===fijoB))||op[Math.floor(Math.random()*op.length)];
+    const nom=b.n.length>34?b.n.slice(0,33)+'…':b.n;
+    mapas.forEach(o=>{ o.lMov.textContent='Móvil · Cuadrante '+q; o.lBar.textContent=nom; });
+    // ubicación de las etiquetas: se prueban lados y alturas hasta encontrar una que entre en la pantalla
+    // y no pise las etiquetas fijas del 911 y la Base Olimpo
+    const m0=mapas[0], ancho=Math.max(m0.lMov.getComputedTextLength(),m0.lBar.getComputedTextLength());
+    const fijas=[m0.l911,m0.lOli].map(t=>t.getBBox());
+    const x=b.c[0], y=b.c[1], afuera=x>=O[0];
+    const alturas=[[y-14,y+24],[y-32,y-14],[y+22,y+40],[y-52,y-34],[y+42,y+60]];
+    let der=null, yM=0, yB=0, resp=null;
+    buscar: for(const lado of [afuera,!afuera]) for(const [a,c] of alturas){
+      const x0=lado?x+14:x-14-ancho, x1=x0+ancho, y0=a-13, y1=c+4;
+      if(x0<-120 || x1>M.w+24 || y0<-60 || y1>M.h+40) continue;
+      if(!resp) resp=[lado,a,c];   // si ninguna queda libre, al menos que entre en pantalla
+      if(fijas.some(f=>x0<f.x+f.width+6 && x1>f.x-6 && y0<f.y+f.height+4 && y1>f.y-4)) continue;
+      der=lado; yM=a; yB=c; break buscar;
+    }
+    if(der===null) [der,yM,yB]=resp||[afuera,y-14,y+24];
     mapas.forEach(o=>{
       o.hiCua.setAttribute('d',M.cuadrantes[q]); o.hiCua.setAttribute('stroke',z); o.hiCua.setAttribute('fill',z);
       o.hiBar.setAttribute('d',b.d); o.hiBar.setAttribute('fill',z);
@@ -679,7 +695,6 @@ body.doc .quote{grid-template-columns:1fr}
       o.mov.setAttribute('cx',b.c[0]); o.mov.setAttribute('cy',b.c[1]);
       o.pm.setAttribute('cx',b.c[0]); o.pm.setAttribute('cy',b.c[1]);
       for(const [t,y] of [[o.lMov,yM],[o.lBar,yB]]){ t.setAttribute('x',b.c[0]+(der?14:-14)); t.setAttribute('y',y); t.setAttribute('text-anchor',der?'start':'end'); }
-      o.lMov.textContent='Móvil · Cuadrante '+q; o.lBar.textContent=nom;
     });
   }
   function frame(o,t){
